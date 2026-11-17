@@ -1,47 +1,32 @@
-import { apply, blockersOf, createGame } from './core/engine';
-import { generateLevel } from './core/generator';
-import { GameView } from './render/view';
+import './ui/styles.css';
+import { defaultSave, loadSave } from './game/storage';
+import { App } from './ui/app';
 
-// Milestone 3 harness: one generated level, tap to launch.
 const canvas = document.getElementById('stage') as HTMLCanvasElement;
-Object.assign(document.body.style, {
-  margin: '0',
-  background: 'linear-gradient(#1b2452,#0c1027)',
-  height: '100vh',
-  overflow: 'hidden',
-});
-Object.assign(canvas.style, {
-  width: '100vw',
-  height: '100vh',
-  display: 'block',
-  touchAction: 'none',
-});
-const q = new URLSearchParams(location.search);
-const level = generateLevel({
-  shape: q.get('shape') ?? 'cube',
-  size: Number(q.get('size') ?? 4),
-  minLen: 2,
-  maxLen: 7,
-  twistiness: 0.7,
-  density: 0.9,
-  seed: Number(q.get('seed') ?? 7),
-});
-let state = createGame(level);
-const view = new GameView(canvas, {
-  onArrowTap(id) {
-    const r = apply(state, { type: 'tap', arrowId: id });
-    state = r.state;
-    for (const e of r.events) {
-      if (e.type === 'arrowEscaped') view.playEscape(e.arrowId);
-      if (e.type === 'arrowBlocked') view.playBonk(e.arrowId, e.blockerId, e.gap);
-    }
-  },
-  onEmptyTap() {},
-});
-view.loadLevel(level);
-view.start();
-Object.assign(window, {
-  __view: view,
-  __state: () => state,
-  __blockers: (id: number) => blockersOf(state, id),
-});
+const ui = document.getElementById('ui') as HTMLElement;
+
+const prefersReducedMotion =
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+const save = loadSave(
+  defaultSave(prefersReducedMotion, (Date.now() ^ (Math.random() * 0x7fffffff)) >>> 0),
+);
+
+try {
+  const app = new App(canvas, ui, save);
+  if (import.meta.env.DEV) Object.assign(window, { __unwind: app });
+} catch (err) {
+  console.error(err);
+  ui.innerHTML =
+    '<div class="screen home"><div class="home-top"><h1 class="logo">Unwind</h1><p class="tagline">This device could not start WebGL, which the game needs.</p></div></div>';
+}
+
+// iOS Safari ignores user-scalable=no; stop page-level pinch zoom so pinch only zooms the puzzle.
+for (const type of ['gesturestart', 'gesturechange']) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
+
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => undefined);
+  });
+}

@@ -3,6 +3,7 @@ import {
   AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
+  CanvasTexture,
   Color,
   Points,
   PointsMaterial,
@@ -10,6 +11,20 @@ import {
 } from 'three';
 
 const MAX = 320;
+
+/** Soft round sprite so sparkles are glowing dots rather than squares. */
+function softDot(): CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = 32;
+  const g = canvas.getContext('2d')!;
+  const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.35, 'rgba(255,255,255,0.75)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 32, 32);
+  return new CanvasTexture(canvas);
+}
 
 export class Particles {
   readonly points: Points;
@@ -29,7 +44,8 @@ export class Particles {
     this.geometry.setAttribute('position', new BufferAttribute(this.pos, 3));
     this.geometry.setAttribute('color', new BufferAttribute(this.col, 3));
     this.material = new PointsMaterial({
-      size: 0.16,
+      size: 0.3,
+      map: softDot(),
       vertexColors: true,
       blending: AdditiveBlending,
       transparent: true,
@@ -91,6 +107,7 @@ export class Particles {
 
   dispose(): void {
     this.geometry.dispose();
+    this.material.map?.dispose();
     this.material.dispose();
   }
 }

@@ -57,6 +57,7 @@ interface ArrowVis {
   alpha: number;
   fade: number;
   dim: number;
+  warn: number;
   flash: number;
   hint: number;
 }
@@ -123,6 +124,7 @@ export class GameView {
   private radius = 3;
   private shake = 0;
   private autoSpin = 0;
+  private demo = false;
 
   private lastEmptyTap = 0;
   private raf = 0;
@@ -155,7 +157,7 @@ export class GameView {
       onDragStart: () => {
         this.dragging = true;
         this.resetting = 0;
-        this.autoSpin = 0;
+        if (!this.demo) this.autoSpin = 0;
         this.spinX = this.spinY = 0;
       },
       onDrag: (dx, dy, dt) => {
@@ -259,6 +261,7 @@ export class GameView {
       alpha: 1,
       fade: 1,
       dim: 1,
+      warn: 0,
       flash: 0,
       hint: 0,
     };
@@ -299,6 +302,13 @@ export class GameView {
   setReduceMotion(on: boolean): void {
     this.reduceMotion = on;
     arrowUniforms.uBreath.value = on ? 0 : 0.012;
+  }
+
+  /** Attract mode for menus: slow spin, taps ignored. */
+  setDemo(on: boolean): void {
+    this.demo = on;
+    this.autoSpin = on ? 0.35 : 0;
+    this.spinX = this.spinY = 0;
   }
 
   setSelection(sel: Selection | null): void {
@@ -509,6 +519,7 @@ export class GameView {
   }
 
   private handleTap(x: number, y: number): void {
+    if (this.demo) return;
     const id = this.pickAt(x, y);
     if (id !== null) {
       this.lastEmptyTap = 0;
@@ -577,7 +588,7 @@ export class GameView {
         this.spinX *= decay;
         this.spinY *= decay;
       } else if (this.autoSpin > 0) {
-        this.rotate(dt * 0.7, 0);
+        this.rotate(dt * 0.7 * this.autoSpin, 0);
       }
     }
     if (Math.abs(this.zoom - this.zoomTarget) > 0.0005) {
@@ -636,11 +647,13 @@ export class GameView {
 
     const dimTarget = sel && !isSel && !isBlocker ? 0.5 : 1;
     vis.dim += (dimTarget - vis.dim) * ease;
-    vis.mat.color.copy(vis.color).multiplyScalar(vis.dim);
+    // Blockers shift towards red so the warning reads regardless of their own colour.
+    vis.warn += ((isBlocker ? 0.7 : 0) - vis.warn) * ease;
+    vis.mat.color.copy(vis.color).lerp(RED, vis.warn).multiplyScalar(vis.dim);
 
     const e = vis.mat.emissive.setRGB(0, 0, 0);
     if (isSel) addScaled(e, vis.color, 0.28 + 0.22 * pulse);
-    if (isBlocker) addScaled(e, RED, 0.55 + 0.4 * pulse);
+    if (isBlocker) addScaled(e, RED, 0.35 + 0.45 * pulse);
     if (vis.flash > 0) {
       addScaled(e, RED, vis.flash * 1.4);
       vis.flash = Math.max(0, vis.flash - dt * 2.2);

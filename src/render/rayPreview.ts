@@ -15,7 +15,7 @@ export class RayPreview {
   private m = new Matrix4();
   private free = new Color(FREE_GREEN);
   private blocked = new Color(BLOCK_RED);
-  private dim = new Color(BLOCK_RED).multiplyScalar(0.35);
+  private dim = new Color(BLOCK_RED).multiplyScalar(0.5);
 
   constructor() {
     const material = new MeshBasicMaterial({
